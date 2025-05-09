@@ -22,34 +22,8 @@ Default region: **us-east-1**
 Default output format: **json**
 
 **Step 1: Create Project Structure and the necessary Terraform Configuration Files**
-opentelemetry-aws-project/
-├── keys/                      # SSH keys will be stored here (generated)
-├── kubernetes/                # Kubernetes manifests
-│   └── opentelemetry-demo.yaml
-├── modules/                   # Terraform modules
-│   ├── ec2/                   # EC2 module
-│   │   ├── main.tf
-│   │   ├── outputs.tf
-│   │   └── variables.tf
-│   ├── eks/                   # EKS module
-│   │   ├── main.tf
-│   │   ├── outputs.tf
-│   │   └── variables.tf
-│   └── vpc/                   # VPC module
-│       ├── main.tf
-│       ├── outputs.tf
-│       └── variables.tf
-├── user_data/                 # EC2 user data scripts
-│   ├── docker_instance_setup.sh
-│   └── eks_client_setup.sh
-├── main.tf                    # Main Terraform configuration
-├── outputs.tf                 # Output definitions
-├── provider.tf                # Provider configurations
-├── ssh_key.tf                 # SSH key generation
-├── terraform.tfvars           # Variable values
-└── variables.tf               # Variable definitions
 
-All of the above files are Pushed to GitHub
+All the necessary files are Pushed to GitHub
 
 **Step 2: Initialize Terraform Project**
   terraform init
