@@ -1,1 +1,9 @@
+# This file is a placeholder for the opentelemetry-demo.yaml manifest
+# The actual manifest will be downloaded from the OpenTelemetry GitHub repository
+# and deployed to the EKS cluster as part of the project steps
 
+# Note: The actual manifest will be downloaded and applied in the EKS client instance
+# using the following commands:
+# mkdir -p ~/kubernetes
+# curl -LO https://raw.githubusercontent.com/open-telemetry/opentelemetry-demo/main/kubernetes/opentelemetry-demo.yaml
+# kubectl apply -f opentelemetry-demo.yaml
