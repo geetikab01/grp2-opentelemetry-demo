@@ -1,0 +1,36 @@
+For kubernetes:
+#!/bin/bash
+yum update -y
+curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+unzip awscliv2.zip
+sudo ./aws/install
+curl -LO "https://dl.k8s.io/release/$(curl -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+chmod +x kubectl
+mv kubectl /usr/local/bin/
+curl --silent --location "https://github.com/weaveworks/eksctl/releases/latest/download/eksctl_$(uname -s)_amd64.tar.gz" | tar xz -C /tmp
+mv /tmp/eksctl /usr/local/bin
+
+aws eks --region us-east-1 update-kubeconfig --name otel-demo-cluster
+kubectl get nodes
+kubectl apply -f opentelemetry-demo.yaml
+kubectl get all -n otel-demo
+kubectl logs <pod-name> -n otel-demo
+
+
+----------------------------
+For HELM:
+
+eksctl create iamidentitymapping   --cluster otel-cluster-1   --region us-east-1   --arn arn:aws:iam::412134929535:role/eks-admin-role   --group system:masters   --username eks-admin
+
+aws eks update-kubeconfig --region us-east-1 --name otel-cluster-1
+kubectl get nodes
+
+sudo yum install -y git
+
+git clone https://github.com/open-telemetry/opentelemetry-helm-charts
+cd opentelemetry-helm-charts/
+
+helm repo add open-telemetry https://open-telemetry.github.io/opentelemetry-helm-charts
+helm repo update
+kubectl create namespace otel-project-demo
+helm install opentelemetry-demo open-telemetry/opentelemetry-demo --namespace otel-project-demo

@@ -24,3 +24,15 @@ variable "eks_cluster_name" {
   type = string
   description = "The eks cluster name"
 }
+
+variable "aws_access_key" {
+  default = "AKIAWFIPTACZPGEKZKAB"
+  type = string
+  description = "The AWS access key"
+}
+
+variable "aws_secret_key" {
+  default = "GVZ2LO0d1pw5XMuREs5ZNjtoxG8vcXMtOVmatN1B"
+  type = string
+  description = "The AWS secret key"
+}

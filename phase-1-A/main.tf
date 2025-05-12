@@ -65,26 +65,16 @@ resource "aws_instance" "eks_client" {
     yum update -y
     yum install unzip git -y
 
-    # === Docker + Docker Compose ===
-    amazon-linux-extras install docker -y
-    service docker start
-    usermod -a -G docker ec2-user
-
-    curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-    chmod +x /usr/local/bin/docker-compose
-
     # === Clone and run Docker app ===
     cd /home/ec2-user
     git clone https://github.com/open-telemetry/opentelemetry-demo
-    cd opentelemetry-demo/
-    docker-compose up -d
 
 
     # === AWS CLI ===
     curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
     unzip awscliv2.zip
     ./aws/install
-
+  
     # === kubectl ===
     cat <<EOT | tee /etc/yum.repos.d/kubernetes.repo
     [kubernetes]
@@ -101,6 +91,17 @@ resource "aws_instance" "eks_client" {
     curl --silent --location "https://github.com/eksctl-io/eksctl/releases/latest/download/eksctl_Linux_amd64.tar.gz" | tar xz -C /tmp
     mv /tmp/eksctl /usr/local/bin
 
+    # === Configure AWS CLI ===
+    aws configure set aws_access_key_id ${var.aws_access_key}
+    aws configure set aws_secret_access_key ${var.aws_secret_key}
+    aws configure set default.region ${var.region}
+    aws configure set default.output json
+    
+    aws eks --region us-east-1 update-kubeconfig --name ${var.eks_cluster_name}
+    # Verify kubectl is working
+    kubectl get nodes
+    cd /home/ec2-user/opentelemetry-demo/kubernetes
+    kubectl apply -f opentelemetry-demo.yaml
     # === Helm ===
     curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
 
@@ -110,37 +111,6 @@ resource "aws_instance" "eks_client" {
   tags = {
     Name = "EKS-Client-And-DockerApp"
   }
-}
-
-module "eks" {
-  source  = "terraform-aws-modules/eks/aws"
-  version = "19.21.0"
-
-  cluster_name    = var.eks_cluster_name
-  cluster_version = "1.29"
-  vpc_id          = aws_vpc.otel_vpc.id
-  subnet_ids      = [aws_subnet.public_subnet.id, aws_subnet.public_subnet_2.id]
-
-  cluster_endpoint_public_access = true
-
-  eks_managed_node_groups = {
-    default = {
-      desired_capacity = 2
-      max_capacity     = 2
-      min_capacity     = 2
-      instance_types   = ["t3.large"]
-    }
-  }
-
-  manage_aws_auth_configmap = false
-
-  aws_auth_roles = [
-    {
-      rolearn  = aws_iam_role.eks_admin.arn
-      username = "eks-admin"
-      groups   = ["system:masters"]
-    }
-  ]
 }
 
 resource "aws_vpc" "otel_vpc" {
@@ -182,4 +152,49 @@ resource "aws_route_table_association" "public_1" {
 resource "aws_route_table_association" "public_2" {
   subnet_id      = aws_subnet.public_subnet_2.id
   route_table_id = aws_route_table.public.id
+}
+
+
+module "eks" {
+  source  = "terraform-aws-modules/eks/aws"
+  version = "19.21.0"
+
+  cluster_name    = var.eks_cluster_name
+  cluster_version = "1.29"
+  vpc_id          = aws_vpc.otel_vpc.id
+  subnet_ids      = [aws_subnet.public_subnet.id, aws_subnet.public_subnet_2.id]
+
+  cluster_endpoint_public_access = true
+
+  eks_managed_node_groups = {
+    default = {
+      desired_capacity = 2
+      max_capacity     = 2
+      min_capacity     = 2
+      instance_types   = ["t3.large"]
+    }
+  }
+
+  manage_aws_auth_configmap = true
+
+  aws_auth_roles = [
+    {
+      rolearn  = aws_iam_role.eks_admin.arn
+      username = "eks-admin"
+      groups   = ["system:masters"]
+    }
+  ]
+}
+
+data "aws_eks_cluster" "cluster" {
+  name = module.eks.cluster_name
+}
+
+data "aws_eks_cluster_auth" "cluster" {
+  name = module.eks.cluster_name
+}
+provider "kubernetes" {
+  host                   = module.eks.cluster_endpoint
+  cluster_ca_certificate = base64decode(module.eks.cluster_certificate_authority_data)
+  token                  = data.aws_eks_cluster_auth.cluster.token
 }
