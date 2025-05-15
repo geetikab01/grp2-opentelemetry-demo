@@ -3,6 +3,14 @@ provider "aws" {
   profile = var.aws_profile
 }
 
+provider "kubernetes" {
+  config_path = "${pathexpand("~/.kube/config")}"
+}
+
+resource "aws_vpc" "otel_vpc" {
+  cidr_block = "10.0.0.0/16"
+}
+
 resource "aws_iam_role" "eks_admin" {
   name = "eks-admin-role"
 
@@ -37,7 +45,7 @@ resource "aws_security_group" "eks_client_sg" {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]  # SSH Access
+    cidr_blocks = ["0.0.0.0/0"]
   }
 
   egress {
@@ -57,7 +65,7 @@ resource "aws_instance" "eks_client" {
   security_groups        = [aws_security_group.eks_client_sg.id]
 
   root_block_device {
-    volume_size = 20
+    volume_size = 30
   }
 
   user_data = <<-EOF
@@ -96,7 +104,7 @@ resource "aws_instance" "eks_client" {
     aws configure set aws_secret_access_key ${var.aws_secret_key}
     aws configure set default.region ${var.region}
     aws configure set default.output json
-    
+
     aws eks --region us-east-1 update-kubeconfig --name ${var.eks_cluster_name}
     # Verify kubectl is working
     kubectl get nodes
@@ -113,9 +121,6 @@ resource "aws_instance" "eks_client" {
   }
 }
 
-resource "aws_vpc" "otel_vpc" {
-  cidr_block = "10.0.0.0/16"
-}
 
 resource "aws_internet_gateway" "gw" {
   vpc_id = aws_vpc.otel_vpc.id
@@ -184,17 +189,27 @@ module "eks" {
       groups   = ["system:masters"]
     }
   ]
+
+  providers = {
+    kubernetes = kubernetes
+  }
 }
 
-data "aws_eks_cluster" "cluster" {
-  name = module.eks.cluster_name
-}
+# data "aws_eks_cluster" "cluster" {
+#   name = module.eks.cluster_name
+#   depends_on = [module.eks]
+# }
 
-data "aws_eks_cluster_auth" "cluster" {
-  name = module.eks.cluster_name
-}
-provider "kubernetes" {
-  host                   = module.eks.cluster_endpoint
-  cluster_ca_certificate = base64decode(module.eks.cluster_certificate_authority_data)
-  token                  = data.aws_eks_cluster_auth.cluster.token
-}
+# data "aws_eks_cluster_auth" "cluster" {
+#   name = module.eks.cluster_name
+#   depends_on = [module.eks]
+# }
+# provider "kubernetes" {
+#   host                   = module.eks.cluster_endpoint
+#   cluster_ca_certificate = base64decode(module.eks.cluster_certificate_authority_data)
+#   exec {
+#     api_version = "client.authentication.k8s.io/v1beta1"
+#     command     = "aws"
+#     args        = ["eks", "get-token", "--cluster-name", module.eks.cluster_name]
+#   }
+# }
