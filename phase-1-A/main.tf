@@ -76,6 +76,10 @@ resource "aws_instance" "eks_client" {
     # === Clone and run Docker app ===
     cd /home/ec2-user
     git clone https://github.com/open-telemetry/opentelemetry-demo
+    mkdir finalProject-phase-1-kubernetes
+    cd finalProject-phase-1-kubernetes
+    git clone https://github.com/danitrical/cc_818n.git
+    cd /home/ec2-user
 
 
     # === AWS CLI ===
