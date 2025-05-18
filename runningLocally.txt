@@ -1,0 +1,2 @@
+aws eks update-kubeconfig --region us-east-1 --name otel-cluster-1 --profile finalProject
+kubectl port-forward svc/frontend-proxy 8080:8080 -n otel-demo

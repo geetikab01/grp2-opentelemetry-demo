@@ -70,24 +70,22 @@ resource "aws_instance" "eks_client" {
 
   user_data = <<-EOF
     #!/bin/bash
+    exec > >(tee /var/log/user-data.log | logger -t user-data -s 2>/dev/console) 2>&1
+    set -x
+
     yum update -y
     yum install unzip git -y
 
-    # === Clone and run Docker app ===
+    # === Clone OpenTelemetry final project ===
     cd /home/ec2-user
-    git clone https://github.com/open-telemetry/opentelemetry-demo
-    mkdir finalProject-phase-1-kubernetes
-    cd finalProject-phase-1-kubernetes
-    git clone https://github.com/danitrical/cc_818n.git
-    cd /home/ec2-user
+    #git clone https://github.com/danitrical/opentelemetry-demo-enpm818N-final-project.git
 
-
-    # === AWS CLI ===
+    # === Install AWS CLI ===
     curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
     unzip awscliv2.zip
     ./aws/install
-  
-    # === kubectl ===
+
+    # === Install kubectl ===
     cat <<EOT | tee /etc/yum.repos.d/kubernetes.repo
     [kubernetes]
     name=Kubernetes
@@ -99,25 +97,29 @@ resource "aws_instance" "eks_client" {
 
     yum install -y kubectl
 
-    # === eksctl ===
+    # === Install eksctl ===
     curl --silent --location "https://github.com/eksctl-io/eksctl/releases/latest/download/eksctl_Linux_amd64.tar.gz" | tar xz -C /tmp
     mv /tmp/eksctl /usr/local/bin
 
-    # === Configure AWS CLI ===
-    aws configure set aws_access_key_id ${var.aws_access_key}
-    aws configure set aws_secret_access_key ${var.aws_secret_key}
-    aws configure set default.region ${var.region}
-    aws configure set default.output json
-
-    aws eks --region us-east-1 update-kubeconfig --name ${var.eks_cluster_name}
-    # Verify kubectl is working
-    kubectl get nodes
-    cd /home/ec2-user/opentelemetry-demo/kubernetes
-    kubectl apply -f opentelemetry-demo.yaml
     # === Helm ===
     curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+    
+    # === Configure AWS CLI (disable trace for secrets) ===
+    # set +x
+    aws configure set aws_access_key_id ${var.aws_access_key} --profile ${var.aws_profile}
+    aws configure set aws_secret_access_key ${var.aws_secret_key} --profile ${var.aws_profile}
+    aws configure set region ${var.region} --profile ${var.aws_profile}
+    aws configure set output json --profile ${var.aws_profile}
+
+    # set -x
+
+    # === Update kubeconfig and verify ===
+    aws eks --region ${var.region} --profile ${var.aws_profile} update-kubeconfig --name ${var.eks_cluster_name}
+    export KUBECONFIG=/root/.kube/config
+    kubectl get nodes
 
     hash -r
+
     EOF
 
   tags = {
@@ -177,9 +179,9 @@ module "eks" {
 
   eks_managed_node_groups = {
     default = {
-      desired_capacity = 2
-      max_capacity     = 2
-      min_capacity     = 2
+      desired_capacity = 3
+      max_capacity     = 3
+      min_capacity     = 3
       instance_types   = ["t3.large"]
     }
   }
@@ -198,22 +200,3 @@ module "eks" {
     kubernetes = kubernetes
   }
 }
-
-# data "aws_eks_cluster" "cluster" {
-#   name = module.eks.cluster_name
-#   depends_on = [module.eks]
-# }
-
-# data "aws_eks_cluster_auth" "cluster" {
-#   name = module.eks.cluster_name
-#   depends_on = [module.eks]
-# }
-# provider "kubernetes" {
-#   host                   = module.eks.cluster_endpoint
-#   cluster_ca_certificate = base64decode(module.eks.cluster_certificate_authority_data)
-#   exec {
-#     api_version = "client.authentication.k8s.io/v1beta1"
-#     command     = "aws"
-#     args        = ["eks", "get-token", "--cluster-name", module.eks.cluster_name]
-#   }
-# }
